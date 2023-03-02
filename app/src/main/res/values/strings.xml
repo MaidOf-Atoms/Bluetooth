@@ -3,4 +3,7 @@
     <string name="str_btn_sent">Send</string>
     <string name="str_menu_search">Search Devices</string>
     <string name="str_menu_bluetooth_on">ON/OFF</string>
+    
+    <string name="str_paired_devices">Paired Devices</string>
+    <string name="str_available_devices">Available Devices</string>
 </resources>
