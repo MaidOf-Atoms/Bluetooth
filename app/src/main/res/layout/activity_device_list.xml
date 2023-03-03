@@ -5,7 +5,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context=".DeviceList">
+    tools:context=".DeviseListActivity">
+    
+    <ProgressBar
+        android:id="@+id/progress_scan_devices"
+        android:visibility="gone"
+        android:layout_gravity="center"
+        android:layout_width="25dp"
+        android:layout_height="25dp"/>
     
     <TextView
         android:text="@string/str_paired_devices"
