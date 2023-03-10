@@ -1,11 +1,13 @@
 package com.example.bluetooth;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,15 +19,16 @@ import androidx.core.app.ActivityCompat;
 import java.io.IOException;
 import java.util.UUID;
 
-public class ChatUtils {
+public class ChatUtils extends MainActivity{
     private Context context;
     private final Handler handler;
     private BluetoothAdapter bluetoothAdapter;
+    private final int BLUETOOTH_PERMISSON = 99;
 
     private connectThread connectThread;
     private AcceptThread acceptThread;
 
-    private final UUID APP_UUID = UUID.fromString("sa89mdac-mdal-mixa-8sj1-0s203910892o");
+    private final UUID APP_UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
     private final String APP_NAME = "Bluetooth";
 
     public static final int STATE_NONE = 0;
@@ -35,7 +38,7 @@ public class ChatUtils {
 
     private int state;
 
-    public ChatUtils(Context context, Handler handler) {
+    public ChatUtils (Context context, Handler handler) {
         this.context = context;
         this.handler = handler;
 
@@ -77,18 +80,17 @@ public class ChatUtils {
 
     }
 
-    public void connect(BluetoothDevice device) {
-        if (state == STATE_CONNECTING) {
+    public void connect(BluetoothDevice device){
+        if(state == STATE_CONNECTING){
             connectThread.cancel();
             connectThread = null;
         }
-
         connectThread = new connectThread(device);
         connectThread.start();
 
         setState(STATE_CONNECTING);
-
     }
+
 
     private class AcceptThread extends Thread {
         private BluetoothServerSocket serverSocket;
@@ -113,40 +115,36 @@ public class ChatUtils {
 
             serverSocket = tmp;
         }
-
         public void run(){
-            BluetoothSocket socket =null;
+            BluetoothSocket socket = null;
             try {
-                socket=serverSocket.accept();
+               socket = serverSocket.accept();
             }catch (IOException e){
-                Log.e("Accept->Run", e.toString());
-                try{
+                Log.e("Accept->Run",e.toString());
+                try {
                     serverSocket.close();
                 }catch (IOException e1){
-                    Log.e("Accept->Close", e.toString());
-
+                    Log.e("Accept->Close",e1.toString());
                 }
             }
-            if(socket != null){
-                switch (state) {
+            if(socket!= null){
+                switch (state){
                     case STATE_LISTEN:
                     case STATE_CONNECTING:
                         connect(socket.getRemoteDevice());
                         break;
                     case STATE_NONE:
                     case STATE_CONNECTED:
-                        try{
+                        try {
                             socket.close();
                         }catch (IOException e){
-                            Log.e("Accept->CloseSocket", e.toString());
-
+                            Log.e("Accept->CloseSocket",e.toString());
                         }
                         break;
-                    default:
-                        throw new IllegalStateException("Unexpected value: " + state);
                 }
             }
         }
+
 
         public void cancel(){
             try{
@@ -159,7 +157,7 @@ public class ChatUtils {
     }
 
     private class connectThread extends Thread {
-        private final BluetoothSocket socket;
+        private BluetoothSocket socket;
         private final BluetoothDevice device;
 
         public connectThread(BluetoothDevice device) {
@@ -169,13 +167,30 @@ public class ChatUtils {
             try {
 
                 if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(ChatUtils.this,
+                            Manifest.permission.BLUETOOTH_CONNECT)) {
+                        new AlertDialog.Builder(context)
+                                .setTitle("Bluetooth permission")
+                                .setMessage("This app needs bluetooth permission please grant")
+                                .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                                        ActivityCompat.requestPermissions(ChatUtils.this,
+                                                new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                                BLUETOOTH_PERMISSON);
+                                    }
+                                })
+                                .create()
+                                .show();
+
+
+                    } else {
+
+                        ActivityCompat.requestPermissions(ChatUtils.this,
+                                new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                BLUETOOTH_PERMISSON);
+                    }
                     return;
                 }
                 tmp = device.createRfcommSocketToServiceRecord(APP_UUID);
@@ -212,7 +227,7 @@ public class ChatUtils {
             synchronized (ChatUtils.this) {
                 connectThread = null;
             }
-            connect(device);
+            connected(device);
         }
 
         public void cancel() {
@@ -225,11 +240,11 @@ public class ChatUtils {
     }
 
     private synchronized void connectionFailed() {
-        Message message = handler.obtainMessage(MainActivity.MESSAGE_TOAST);
+        Message msg = handler.obtainMessage(MainActivity.MESSAGE_TOAST);
         Bundle bundle = new Bundle();
         bundle.putString(MainActivity.TOAST, "Can't connect to the device");
-        message.setData(bundle);
-        handler.sendMessage(message);
+        msg.setData(bundle);
+        handler.sendMessage(msg);
 
         ChatUtils.this.start();
     }
@@ -240,7 +255,7 @@ public class ChatUtils {
             connectThread = null;
         }
 
-        Message message = handler.obtainMessage(MainActivity.MESSAGE_DEVICE_NAME);
+        Message msg = handler.obtainMessage(MainActivity.MESSAGE_DEVICE_NAME);
         Bundle bundle = new Bundle();
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
@@ -253,8 +268,8 @@ public class ChatUtils {
             return;
         }
         bundle.putString(MainActivity.DEVICE_NAME, device.getName());
-        message.setData(bundle);
-        handler.sendMessage(message);
+        msg.setData(bundle);
+        handler.sendMessage(msg);
 
         setState(STATE_CONNECTED);
     }

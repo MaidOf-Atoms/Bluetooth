@@ -48,8 +48,8 @@ public class DeviseListActivity extends AppCompatActivity {
         listPairedDevices = findViewById(R.id.lsit_paired_devices);
 
         progressScanDevices = findViewById(R.id.progress_scan_devices);
-        adapterPairedDevices = new ArrayAdapter<String>(context, R.layout.devise_list_item);
-        adapterAvailableDevices = new ArrayAdapter<String>(context, R.layout.devise_list_item);
+        adapterPairedDevices = new ArrayAdapter<String>(context, R.layout.device_list_item);
+        adapterAvailableDevices = new ArrayAdapter<String>(context, R.layout.device_list_item);
 
         listPairedDevices.setAdapter(adapterPairedDevices);
         listAvailableDevices.setAdapter(adapterAvailableDevices);
