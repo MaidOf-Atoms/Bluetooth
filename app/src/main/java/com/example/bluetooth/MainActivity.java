@@ -18,12 +18,24 @@ import android.os.Handler;
 import android.os.Message;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.Toast;
+
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends AppCompatActivity {
     private Context context;
     private BluetoothAdapter bluetoothAdapter;
     private ChatUtils chatUtils;
+
+    private ListView listMainChat;
+    private EditText edCreateMessage;
+    private Button btnSendMessage;
+    private ArrayAdapter<String> adapterMainChat;
 
     private final int LOCATION_PERMISSON_REQUEST = 101;
     private final int BLUETOOTH_PERMISSON = 99;
@@ -60,8 +72,14 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
                 case MESSAGE_READ:
+                    byte[] buffer = (byte[])msg.obj;
+                    String inputBuffer = new String(buffer, 0,msg.arg1);
+                    adapterMainChat.add(connectedDevice + ":"+ inputBuffer);
                     break;
                 case MESSAGE_WRITE:
+                    byte[] buffer1 = (byte[])msg.obj;
+                    String outputBuffer = new String(buffer1);
+                    adapterMainChat.add("Me: "+outputBuffer);
                     break;
                 case MESSAGE_DEVICE_NAME:
                     connectedDevice = msg.getData().getString(DEVICE_NAME);
@@ -85,9 +103,31 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         context = this;
 
+        init();
+
         chatUtils = new ChatUtils(context,handler);
         initBluetooth();
 
+    }
+    private void init(){
+        listMainChat = findViewById(R.id.list_conversation);
+        edCreateMessage = findViewById(R.id.ed_enter_massage);
+        btnSendMessage = findViewById(R.id.btn_send_msg);
+
+        adapterMainChat = new ArrayAdapter<>(context,R.layout.message_layout);
+        listMainChat.setAdapter(adapterMainChat);
+
+        btnSendMessage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String message = edCreateMessage.getText().toString();
+                if(!message.isEmpty()){
+                    edCreateMessage.setText("");
+                    chatUtils.write(message.getBytes());
+
+                }
+            }
+        });
     }
 
     private void initBluetooth() {
@@ -173,12 +213,12 @@ public class MainActivity extends AppCompatActivity {
                     if (ContextCompat.checkSelfPermission(this,
                             Manifest.permission.BLUETOOTH_CONNECT)
                             == PackageManager.PERMISSION_GRANTED) {
+
                         if (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
                             Intent discoveryIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                             discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
                             startActivity(discoveryIntent);
                         }
-
                     }
 
                 }
@@ -188,44 +228,89 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-        private boolean enableBluetooth() {
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.BLUETOOTH_CONNECT)
-                != PackageManager.PERMISSION_GRANTED) {
 
-
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.BLUETOOTH_CONNECT)) {
-                new AlertDialog.Builder(this)
-                        .setTitle("Bluetooth permission")
-                        .setMessage("This app needs bluetooth permission please grant")
-                        .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialogInterface, int i) {
-
-                                ActivityCompat.requestPermissions(MainActivity.this,
-                                        new String[]{Manifest.permission.BLUETOOTH_CONNECT},
-                                        BLUETOOTH_PERMISSON);
-                            }
-                        })
-                        .create()
-                        .show();
-
-
+        private void enableBluetooth() {
+            if (bluetoothAdapter.isEnabled()) {
+                Toast.makeText(context, "Bluetooth found", Toast.LENGTH_SHORT).show();
             } else {
 
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.BLUETOOTH_CONNECT},
-                        BLUETOOTH_PERMISSON);
+                if (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.BLUETOOTH_CONNECT)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                            Manifest.permission.BLUETOOTH_CONNECT)) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Bluetooth permission")
+                                .setMessage("This app needs bluetooth permission please grant")
+                                .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                                        ActivityCompat.requestPermissions(MainActivity.this,
+                                                new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                                BLUETOOTH_PERMISSON);
+                                    }
+                                })
+                                .create()
+                                .show();
+
+
+                    } else {
+
+                        ActivityCompat.requestPermissions(this,
+                                new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                BLUETOOTH_PERMISSON);
+                    }
+                    return;
+                }
+
+
+
+                bluetoothAdapter.enable();
+
+
+
             }
-            return false;
-        } else {
-            return true;
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED) {
+
+
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.BLUETOOTH_SCAN)) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Bluetooth permission")
+                            .setMessage("This app needs bluetooth permission please grant")
+                            .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+
+                                    ActivityCompat.requestPermissions(MainActivity.this,
+                                            new String[]{Manifest.permission.BLUETOOTH_SCAN},
+                                            BLUETOOTH_PERMISSON);
+                                }
+                            })
+                            .create()
+                            .show();
+
+
+                } else {
+
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.BLUETOOTH_SCAN},
+                            BLUETOOTH_PERMISSON);
+                }
+                return;
+            }
+            if (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
+                Intent discoveryIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+                startActivity(discoveryIntent);
+            }
+
         }
-    }
-
-
-
 
     @Override
     protected void onDestroy() {
