@@ -7,12 +7,14 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -37,9 +39,11 @@ public class MainActivity extends AppCompatActivity {
     private Button btnSendMessage;
     private ArrayAdapter<String> adapterMainChat;
 
-    private final int LOCATION_PERMISSON_REQUEST = 101;
-    private final int BLUETOOTH_PERMISSON = 99;
-    private final int SELECT_DEVICE=102;
+    private final int LOCATION_PERMISSION_REQUEST = 101;
+
+    private final int SELECT_DEVICE = 102;
+    private final int REQUEST_CODE = 1;
+    private final int BLUETOOTH_PERMISSION = 99;
 
     public static final int MESSAGE_STATE_CHANGED = 0;
     public static final int MESSAGE_READ = 1;
@@ -53,10 +57,10 @@ public class MainActivity extends AppCompatActivity {
 
     private Handler handler = new Handler(new Handler.Callback() {
         @Override
-        public boolean handleMessage(@NonNull Message msg) {
-            switch (msg.what){
+        public boolean handleMessage(@NonNull Message message) {
+            switch (message.what) {
                 case MESSAGE_STATE_CHANGED:
-                    switch (msg.arg1){
+                    switch (message.arg1) {
                         case ChatUtils.STATE_NONE:
                             setState("Not Connected");
                             break;
@@ -64,36 +68,36 @@ public class MainActivity extends AppCompatActivity {
                             setState("Not Connected");
                             break;
                         case ChatUtils.STATE_CONNECTING:
-                            setState("Connecting");
+                            setState("Connecting...");
                             break;
                         case ChatUtils.STATE_CONNECTED:
                             setState("Connected: " + connectedDevice);
                             break;
                     }
                     break;
-                case MESSAGE_READ:
-                    byte[] buffer = (byte[])msg.obj;
-                    String inputBuffer = new String(buffer, 0,msg.arg1);
-                    adapterMainChat.add(connectedDevice + ":"+ inputBuffer);
-                    break;
                 case MESSAGE_WRITE:
-                    byte[] buffer1 = (byte[])msg.obj;
+                    byte[] buffer1 = (byte[]) message.obj;
                     String outputBuffer = new String(buffer1);
-                    adapterMainChat.add("Me: "+outputBuffer);
+                    adapterMainChat.add("Me: " + outputBuffer);
+                    break;
+                case MESSAGE_READ:
+                    byte[] buffer = (byte[]) message.obj;
+                    String inputBuffer = new String(buffer, 0, message.arg1);
+                    adapterMainChat.add(connectedDevice + ": " + inputBuffer);
                     break;
                 case MESSAGE_DEVICE_NAME:
-                    connectedDevice = msg.getData().getString(DEVICE_NAME);
-                    Toast.makeText(context,connectedDevice,Toast.LENGTH_SHORT).show();
+                    connectedDevice = message.getData().getString(DEVICE_NAME);
+                    Toast.makeText(context, connectedDevice, Toast.LENGTH_SHORT).show();
                     break;
                 case MESSAGE_TOAST:
-                    Toast.makeText(context, msg.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, message.getData().getString(TOAST), Toast.LENGTH_SHORT).show();
                     break;
             }
             return false;
         }
     });
 
-    private void setState(CharSequence subTitle){
+    private void setState(CharSequence subTitle) {
         getSupportActionBar().setSubtitle(subTitle);
     }
 
@@ -105,23 +109,23 @@ public class MainActivity extends AppCompatActivity {
 
         init();
 
-        chatUtils = new ChatUtils(context,handler);
         initBluetooth();
-
+        chatUtils = new ChatUtils(context, handler);
     }
-    private void init(){
+
+    private void init() {
         listMainChat = findViewById(R.id.list_conversation);
-        edCreateMessage = findViewById(R.id.ed_enter_massage);
+        edCreateMessage = findViewById(R.id.ed_enter_message);
         btnSendMessage = findViewById(R.id.btn_send_msg);
 
-        adapterMainChat = new ArrayAdapter<>(context,R.layout.message_layout);
+        adapterMainChat = new ArrayAdapter<String>(context, R.layout.message_layout);
         listMainChat.setAdapter(adapterMainChat);
 
         btnSendMessage.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
+            public void onClick(View view) {
                 String message = edCreateMessage.getText().toString();
-                if(!message.isEmpty()){
+                if (!message.isEmpty()) {
                     edCreateMessage.setText("");
                     chatUtils.write(message.getBytes());
 
@@ -147,7 +151,11 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_serch:
-                checkPermisshons();
+                if (!bluetoothAdapter.isEnabled()) {
+                    Toast.makeText(context, "Please use other menu button", Toast.LENGTH_SHORT).show();
+                } else {
+                    checkPermissions();
+                }
                 return true;
             case R.id.menu_on_off:
                 enableBluetooth();
@@ -158,21 +166,31 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void checkPermisshons() {
+    private void checkPermissions() {
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.P){
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSON_REQUEST);
+            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST);
         } else {
             Intent intent = new Intent(context, DeviseListActivity.class);
             startActivityForResult(intent, SELECT_DEVICE);
+        }
+        }else{
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION_REQUEST);
+            } else {
+                Intent intent = new Intent(context, DeviseListActivity.class);
+                startActivityForResult(intent, SELECT_DEVICE);
+            }
         }
 
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        if(requestCode == SELECT_DEVICE && requestCode == RESULT_OK){
+        if (requestCode == SELECT_DEVICE && resultCode == RESULT_OK) {
             String address = data.getStringExtra("deviceAddress");
             chatUtils.connect(bluetoothAdapter.getRemoteDevice(address));
+            Toast.makeText(context,"Address: " + address,Toast.LENGTH_SHORT).show();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -180,18 +198,18 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 
-        if (requestCode == LOCATION_PERMISSON_REQUEST) {
+        if (requestCode == LOCATION_PERMISSION_REQUEST) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Intent intent = new Intent(context, DeviseListActivity.class);
-                startActivityForResult(intent,SELECT_DEVICE);
+                startActivityForResult(intent, SELECT_DEVICE);
             } else {
                 new AlertDialog.Builder(context)
                         .setCancelable(false)
-                        .setMessage("Location permission is required.\n Please grant")
+                        .setMessage("Location permission is require" + "\n Please grant")
                         .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int i) {
-                                checkPermisshons();
+                                checkPermissions();
                             }
                         })
                         .setNegativeButton("Deny", new DialogInterface.OnClickListener() {
@@ -205,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
         switch (requestCode) {
-            case BLUETOOTH_PERMISSON: {
+            case BLUETOOTH_PERMISSION: {
 
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -216,8 +234,8 @@ public class MainActivity extends AppCompatActivity {
 
                         if (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
                             Intent discoveryIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-                            discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
-                            startActivity(discoveryIntent);
+                            discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 5000);
+                            startActivityForResult(discoveryIntent, REQUEST_CODE);
                         }
                     }
 
@@ -228,19 +246,82 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void checkLocationPermission() {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.BLUETOOTH_CONNECT)) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Bluetooth permission")
+                            .setMessage("This app needs bluetooth permission please grant")
+                            .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
 
-        private void enableBluetooth() {
-            if (bluetoothAdapter.isEnabled()) {
-                Toast.makeText(context, "Bluetooth found", Toast.LENGTH_SHORT).show();
-            } else {
+                                    ActivityCompat.requestPermissions(MainActivity.this,
+                                            new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                            BLUETOOTH_PERMISSION);
+                                }
+                            })
+                            .create()
+                            .show();
+                } else {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                            BLUETOOTH_PERMISSION);
+                }
+                return;
+            }
+        }else{
+            if (ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.BLUETOOTH)
+                    != PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.BLUETOOTH)) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Bluetooth permission")
+                            .setMessage("This app needs bluetooth permission please grant")
+                            .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
 
+                                    ActivityCompat.requestPermissions(MainActivity.this,
+                                            new String[]{Manifest.permission.BLUETOOTH},
+                                            BLUETOOTH_PERMISSION);
+                                }
+                            })
+                            .create()
+                            .show();
+                } else {
+                    ActivityCompat.requestPermissions(this,
+                            new String[]{Manifest.permission.BLUETOOTH},
+                            BLUETOOTH_PERMISSION);
+                }
+                return;
+            }
+        }
+
+    }
+
+    @SuppressLint("MissingPermission")
+    private void enableBluetooth() {
+        if (bluetoothAdapter.isEnabled()) {
+            Toast.makeText(context, "Bluetooth found", Toast.LENGTH_SHORT).show();
+        } else {
+            checkLocationPermission();
+            bluetoothAdapter.enable();
+
+            }
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
                 if (ContextCompat.checkSelfPermission(this,
-                        Manifest.permission.BLUETOOTH_CONNECT)
+                        Manifest.permission.BLUETOOTH_SCAN)
                         != PackageManager.PERMISSION_GRANTED) {
 
 
                     if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                            Manifest.permission.BLUETOOTH_CONNECT)) {
+                            Manifest.permission.BLUETOOTH_SCAN)) {
                         new AlertDialog.Builder(this)
                                 .setTitle("Bluetooth permission")
                                 .setMessage("This app needs bluetooth permission please grant")
@@ -249,8 +330,8 @@ public class MainActivity extends AppCompatActivity {
                                     public void onClick(DialogInterface dialogInterface, int i) {
 
                                         ActivityCompat.requestPermissions(MainActivity.this,
-                                                new String[]{Manifest.permission.BLUETOOTH_CONNECT},
-                                                BLUETOOTH_PERMISSON);
+                                                new String[]{Manifest.permission.BLUETOOTH_SCAN},
+                                                BLUETOOTH_PERMISSION);
                                     }
                                 })
                                 .create()
@@ -260,63 +341,57 @@ public class MainActivity extends AppCompatActivity {
                     } else {
 
                         ActivityCompat.requestPermissions(this,
-                                new String[]{Manifest.permission.BLUETOOTH_CONNECT},
-                                BLUETOOTH_PERMISSON);
+                                new String[]{Manifest.permission.BLUETOOTH_SCAN},
+                                BLUETOOTH_PERMISSION);
+                    }
+                    return;
+                }
+                if (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.BLUETOOTH_ADVERTISE)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+
+                    if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                            Manifest.permission.BLUETOOTH_ADVERTISE)) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("Bluetooth permission")
+                                .setMessage("This app needs bluetooth permission please grant")
+                                .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                                        ActivityCompat.requestPermissions(MainActivity.this,
+                                                new String[]{Manifest.permission.BLUETOOTH_ADVERTISE},
+                                                BLUETOOTH_PERMISSION);
+                                    }
+                                })
+                                .create()
+                                .show();
+
+
+                    } else {
+
+                        ActivityCompat.requestPermissions(this,
+                                new String[]{Manifest.permission.BLUETOOTH_ADVERTISE},
+                                BLUETOOTH_PERMISSION);
                     }
                     return;
                 }
 
-
-
-                bluetoothAdapter.enable();
-
-
-
-            }
-            if (ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.BLUETOOTH_SCAN)
-                    != PackageManager.PERMISSION_GRANTED) {
-
-
-                if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                        Manifest.permission.BLUETOOTH_SCAN)) {
-                    new AlertDialog.Builder(this)
-                            .setTitle("Bluetooth permission")
-                            .setMessage("This app needs bluetooth permission please grant")
-                            .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialogInterface, int i) {
-
-                                    ActivityCompat.requestPermissions(MainActivity.this,
-                                            new String[]{Manifest.permission.BLUETOOTH_SCAN},
-                                            BLUETOOTH_PERMISSON);
-                                }
-                            })
-                            .create()
-                            .show();
-
-
-                } else {
-
-                    ActivityCompat.requestPermissions(this,
-                            new String[]{Manifest.permission.BLUETOOTH_SCAN},
-                            BLUETOOTH_PERMISSON);
-                }
-                return;
             }
             if (bluetoothAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
                 Intent discoveryIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-                discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+                discoveryIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 5000);
                 startActivity(discoveryIntent);
             }
 
         }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if(chatUtils!= null){
-            chatUtils.stop();
+        @Override
+        protected void onDestroy () {
+            super.onDestroy();
+            if (chatUtils != null) {
+                chatUtils.stop();
+            }
         }
     }
-}
