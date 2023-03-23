@@ -424,15 +424,27 @@ public class ChatUtils extends MainActivity {
         public void run() {
             byte[] buffer = new byte[1024];
             int bytes;
-            try {
-                bytes = inputStream.read(buffer);
 
-                handler.obtainMessage(MainActivity.MESSAGE_READ, bytes, -1, buffer).sendToTarget();
-            } catch (IOException e) {
-                connectionLost();
+            int i = 0;
+            while (i<1000){
+                i+=0.01;
+                try{
+                    try {
+                        bytes = inputStream.read(buffer);
+                        handler.obtainMessage(MainActivity.MESSAGE_READ, bytes, -1, buffer).sendToTarget();
+                    } catch (NullPointerException n) {
+                        Log.e("ConnectedThread->Run", n.getMessage().toString());
+                    }
+                }catch (IOException e){
+                    Log.e("ConnectedThread->Run", "Connection Lost.", e);
+                    e.printStackTrace();
+                    connectionLost();
+                    break;
+
+                }
             }
-
         }
+
 
         public void write(byte[] buffer) {
             try {

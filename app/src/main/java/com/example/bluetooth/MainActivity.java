@@ -10,6 +10,8 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -27,7 +29,9 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private Context context;
@@ -44,6 +48,10 @@ public class MainActivity extends AppCompatActivity {
     private final int SELECT_DEVICE = 102;
     private final int REQUEST_CODE = 1;
     private final int BLUETOOTH_PERMISSION = 99;
+
+    private static final int VIEW_TYPE_MESSAGE_SENT = 103;
+    private static final int VIEW_TYPE_MESSAGE_RECEIVED = 104;
+
 
     public static final int MESSAGE_STATE_CHANGED = 0;
     public static final int MESSAGE_READ = 1;
@@ -94,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
             }
             return false;
+
         }
     });
 
@@ -113,6 +122,8 @@ public class MainActivity extends AppCompatActivity {
         chatUtils = new ChatUtils(context, handler);
     }
 
+
+
     private void init() {
         listMainChat = findViewById(R.id.list_conversation);
         edCreateMessage = findViewById(R.id.ed_enter_message);
@@ -130,6 +141,7 @@ public class MainActivity extends AppCompatActivity {
                     chatUtils.write(message.getBytes());
 
                 }
+
             }
         });
     }
@@ -246,7 +258,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void checkLocationPermission() {
+    private void checkBluetoothPermission() {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
             if (ContextCompat.checkSelfPermission(this,
                     Manifest.permission.BLUETOOTH_CONNECT)
@@ -310,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
         if (bluetoothAdapter.isEnabled()) {
             Toast.makeText(context, "Bluetooth found", Toast.LENGTH_SHORT).show();
         } else {
-            checkLocationPermission();
+            checkBluetoothPermission();
             bluetoothAdapter.enable();
 
             }
@@ -386,6 +398,9 @@ public class MainActivity extends AppCompatActivity {
             }
 
         }
+
+
+
 
         @Override
         protected void onDestroy () {
