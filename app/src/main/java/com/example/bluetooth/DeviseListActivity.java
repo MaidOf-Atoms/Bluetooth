@@ -31,9 +31,12 @@ import java.util.Set;
 
 public class DeviseListActivity extends AppCompatActivity {
     private ListView listPairedDevices, listAvailableDevices;
+    private ChatUtils chatUtils;
+
 
     private ProgressBar progressScanDevices;
     private final int BLUETOOTH_PERMISSON = 99;
+    private final int BLUETOOTH_PERMISSION = 102;
 
     private ArrayAdapter<String> adapterPairedDevices, adapterAvailableDevices;
     private Context context;
@@ -59,6 +62,90 @@ public class DeviseListActivity extends AppCompatActivity {
         listPairedDevices.setAdapter(adapterPairedDevices);
         listAvailableDevices.setAdapter(adapterAvailableDevices);
 
+        listPairedDevices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int i, long l) {
+
+                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+                    if (ContextCompat.checkSelfPermission(context,
+                            Manifest.permission.BLUETOOTH_CONNECT)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        if (ActivityCompat.shouldShowRequestPermissionRationale(DeviseListActivity.this,
+                                Manifest.permission.BLUETOOTH_CONNECT)) {
+                            new AlertDialog.Builder(context)
+                                    .setTitle("Bluetooth permission")
+                                    .setMessage("This app needs bluetooth permission please grant")
+                                    .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialogInterface, int i) {
+
+                                            ActivityCompat.requestPermissions(DeviseListActivity.this,
+                                                    new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                                    BLUETOOTH_PERMISSION);
+                                        }
+                                    })
+                                    .create()
+                                    .show();
+                        } else {
+                            ActivityCompat.requestPermissions(DeviseListActivity.this,
+                                    new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                                    BLUETOOTH_PERMISSION);
+                        }
+                        return;
+                    }
+                }else{
+                    if (ContextCompat.checkSelfPermission(context,
+                            Manifest.permission.BLUETOOTH)
+                            != PackageManager.PERMISSION_GRANTED) {
+                        if (ActivityCompat.shouldShowRequestPermissionRationale(DeviseListActivity.this,
+                                Manifest.permission.BLUETOOTH)) {
+                            new AlertDialog.Builder(context)
+                                    .setTitle("Bluetooth permission")
+                                    .setMessage("This app needs bluetooth permission please grant")
+                                    .setPositiveButton("Grant", new DialogInterface.OnClickListener() {
+                                        @Override
+                                        public void onClick(DialogInterface dialogInterface, int i) {
+
+                                            ActivityCompat.requestPermissions(DeviseListActivity.this,
+                                                    new String[]{Manifest.permission.BLUETOOTH},
+                                                    BLUETOOTH_PERMISSION);
+                                        }
+                                    })
+                                    .create()
+                                    .show();
+                        } else {
+                            ActivityCompat.requestPermissions(DeviseListActivity.this,
+                                    new String[]{Manifest.permission.BLUETOOTH},
+                                    BLUETOOTH_PERMISSION);
+                        }
+                        return;
+                    }
+                }
+
+                if (bluetoothAdapter.getBondedDevices().size() > 0) {
+
+                    for (BluetoothDevice device : bluetoothAdapter.getBondedDevices()) {
+                        if(bluetoothAdapter.getRemoteDevice(bluetoothAdapter.getAddress())== device ){
+
+                            chatUtils.connect(bluetoothAdapter.getRemoteDevice(bluetoothAdapter.getAddress()));
+                            String info = ((TextView) view).getText().toString();
+                            String address = info.substring(info.length()-17);
+
+                            Intent intent = new Intent();
+                            intent.putExtra("deviceAddress",address);
+                            setResult(RESULT_OK,intent);
+                            break;
+
+                        }
+
+                    }
+                    finish();
+                }
+
+
+            }
+        });
+
         listAvailableDevices.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int i, long l) {
@@ -69,6 +156,7 @@ public class DeviseListActivity extends AppCompatActivity {
                 intent.putExtra("deviceAddress",address);
                 setResult(RESULT_OK,intent);
                 finish();
+
             }
         });
 
@@ -140,6 +228,8 @@ public class DeviseListActivity extends AppCompatActivity {
         }
         IntentFilter intentFilter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(bluetoothDeviceListener, intentFilter);
+        IntentFilter intentFilter2 = new IntentFilter(BluetoothDevice.EXTRA_DEVICE);
+        registerReceiver(bluetoothDeviceListener,intentFilter2);
         IntentFilter intentFilter1 = new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         registerReceiver(bluetoothDeviceListener, intentFilter1);
     }
@@ -209,13 +299,13 @@ public class DeviseListActivity extends AppCompatActivity {
 
                 if (device.getBondState() != BluetoothDevice.BOND_BONDED) {
                     adapterAvailableDevices.add(device.getName() + "\n" + device.getAddress());
+                }else if(device.getBondState() == BluetoothDevice.BOND_BONDED){
+                    adapterPairedDevices.add(device.getName()+"\n"+ device.getAddress());
                 }
             }else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
                 progressScanDevices.setVisibility(View.GONE);
                 if(adapterAvailableDevices.getCount()== 0){
                     Toast.makeText(context,"no new devices found",Toast.LENGTH_SHORT).show();
-                }else{
-                    Toast.makeText(context,"click on the device to start the chat",Toast.LENGTH_SHORT).show();
                 }
             }
         }
@@ -241,6 +331,7 @@ public class DeviseListActivity extends AppCompatActivity {
     private void scanDevices() {
         progressScanDevices.setVisibility(View.VISIBLE);
         adapterAvailableDevices.clear();
+        adapterPairedDevices.clear();
         Toast.makeText(context, "Scanning", Toast.LENGTH_SHORT).show();
 
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {

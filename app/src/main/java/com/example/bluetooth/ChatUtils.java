@@ -51,6 +51,8 @@ public class ChatUtils extends MainActivity {
 
         state = STATE_NONE;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+
     }
 
     public int getState() {
@@ -63,6 +65,7 @@ public class ChatUtils extends MainActivity {
     }
 
     private synchronized void start() {
+
         if (connectThread != null) {
             connectThread.cancel();
             connectThread = null;
@@ -131,6 +134,7 @@ public class ChatUtils extends MainActivity {
 
     private class AcceptThread extends Thread {
         private BluetoothServerSocket serverSocket;
+
 
         public AcceptThread() {
             BluetoothServerSocket tmp = null;
@@ -239,9 +243,11 @@ public class ChatUtils extends MainActivity {
         }
     }
 
+
     private class ConnectThread extends Thread {
         private BluetoothSocket socket;
         private final BluetoothDevice device;
+
 
         public ConnectThread(BluetoothDevice device) {
             this.device = device;
@@ -309,7 +315,6 @@ public class ChatUtils extends MainActivity {
             } catch (IOException e) {
                 Log.e("Connect->Constructor", e.toString());
             }
-
             socket = tmp;
 
         }

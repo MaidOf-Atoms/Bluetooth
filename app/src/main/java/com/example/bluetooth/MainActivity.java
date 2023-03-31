@@ -70,8 +70,6 @@ public class MainActivity extends AppCompatActivity {
                 case MESSAGE_STATE_CHANGED:
                     switch (message.arg1) {
                         case ChatUtils.STATE_NONE:
-                            setState("Not Connected");
-                            break;
                         case ChatUtils.STATE_LISTEN:
                             setState("Not Connected");
                             break;
@@ -129,7 +127,10 @@ public class MainActivity extends AppCompatActivity {
         edCreateMessage = findViewById(R.id.ed_enter_message);
         btnSendMessage = findViewById(R.id.btn_send_msg);
 
+       //future update will start from here
         adapterMainChat = new ArrayAdapter<String>(context, R.layout.message_layout);
+
+
         listMainChat.setAdapter(adapterMainChat);
 
         btnSendMessage.setOnClickListener(new View.OnClickListener() {
@@ -202,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == SELECT_DEVICE && resultCode == RESULT_OK) {
             String address = data.getStringExtra("deviceAddress");
             chatUtils.connect(bluetoothAdapter.getRemoteDevice(address));
-            Toast.makeText(context,"Address: " + address,Toast.LENGTH_SHORT).show();
+            Toast.makeText(context,"Address:"+ address,Toast.LENGTH_SHORT).show();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
